@@ -76,7 +76,7 @@ flowchart LR
     style Infrastructure fill:#e8f5e9
 ```
 
-## � Tecnologias Utilizadas
+## 💻 Tecnologias Utilizadas
 
 | Categoria | Tecnologia | Versão | Descrição |
 |-----------|-----------|--------|-----------|
@@ -116,11 +116,6 @@ source .venv/bin/activate  # Linux/Mac
 
 # Instale as dependências
 pip install -r requirements.txt
-```
-
-### 3. Configuração das Variáveis de Ambiente
-
-pip install -r requirements.txt
 pip install -r requirements-dev.txt  # apenas para desenvolvimento
 
 # Configure as variáveis de ambiente
@@ -159,7 +154,7 @@ pytest --cov=src --cov-report=html
 pytest tests/unit/domain/test_cpf.py
 ```
 
-### 3. Testar Localmente
+### Testar Localmente
 
 ```bash
 # Testar a função diretamente
@@ -251,44 +246,17 @@ sam delete --stack-name auth-app
 ### Invocar Lambda Diretamente
 
 **Via AWS CLI:**
-src/
-├── lambda_handler.py           # Entry point do Lambda
-├── domain/                     # Regras de negócio
-│   ├── entities/              # Customer entity
-│   └── value_objects/         # CPF validation
-├── application/               # Casos de uso
-│   └── use_cases/            # AuthenticateCustomer
-├── adapters/                  # Interfaces externas
-│   ├── controllers/          # HTTP handlers
-│   └── gateways/             # Repository implementations
-└── infrastructure/            # Frameworks & drivers
-    ├── database/             # SQLAlchemy
-    ├── security/             # JWT
-    └── config/               # Settings
-
-tests/
-└── unit/                      # Testes unitários
-    ├── domain/
-    ├── use_cases/
-    ├── adapters/
-    └── infrastructure/
-```
-
-## 🔒 Uso da API
-
-### Invocar Lambda Diretamente
 
 ```bash
-# Via AWS CLI
 aws lambda invoke \
-  --function-name auth-app \
+  --function-name auth-app-auth \
   --payload '{"cpf":"12345678901"}' \
   response.json
 
 cat response.json
 ```
 
-### Resposta de Sucesso
+**Exemplo de Resposta:**
 
 ```json
 {
@@ -300,17 +268,6 @@ cat response.json
       "id": 1,
       "name": "João da Silva"
     }
-  }
-}
-```
-
-### Resposta de Erro
-
-```json
-{
-  "statusCode": 400,
-  "body": {
-    "error": "CPF inválido"
   }
 }
 ```

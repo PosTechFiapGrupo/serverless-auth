@@ -10,29 +10,28 @@ from src.application.use_cases.authenticate_customer import AuthenticateCustomer
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     AWS Lambda handler for authentication.
-    
+
     This is the entry point for AWS Lambda.
     Implements Dependency Injection manually (composition root).
-    
+
     Args:
         event: API Gateway event
         context: Lambda context
-        
+
     Returns:
         API Gateway response
     """
 
     DatabaseConnection.initialize()
-    
+
     with DatabaseConnection.get_session() as session:
         customer_repository = CustomerRepository(session)
         token_generator = JWTTokenGenerator()
-        
+
         use_case = AuthenticateCustomerUseCase(
-            customer_repository=customer_repository,
-            token_generator=token_generator
+            customer_repository=customer_repository, token_generator=token_generator
         )
-        
+
         controller = AuthenticationController(use_case)
-        
+
         return controller.handle(event)

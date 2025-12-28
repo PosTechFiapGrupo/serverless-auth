@@ -28,7 +28,7 @@ def sample_customer():
         email="joao@example.com",
         telefone="11987654321",
         criado_em=datetime(2024, 1, 1, 10, 0, 0),
-        atualizado_em=datetime(2024, 1, 1, 10, 0, 0)
+        atualizado_em=datetime(2024, 1, 1, 10, 0, 0),
     )
 
 
@@ -42,7 +42,7 @@ def inactive_customer():
         email="maria@example.com",
         telefone="11912345678",
         criado_em=datetime(2024, 1, 1, 10, 0, 0),
-        atualizado_em=datetime(2024, 1, 1, 10, 0, 0)
+        atualizado_em=datetime(2024, 1, 1, 10, 0, 0),
     )
 
 
@@ -50,6 +50,7 @@ def inactive_customer():
 def mock_customer_repository():
     """Mock customer repository."""
     from src.application.use_cases.ports import ICustomerRepository
+
     return Mock(spec=ICustomerRepository)
 
 
@@ -57,4 +58,5 @@ def mock_customer_repository():
 def mock_token_generator():
     """Mock token generator."""
     from src.application.use_cases.ports import ITokenGenerator
+
     return Mock(spec=ITokenGenerator)

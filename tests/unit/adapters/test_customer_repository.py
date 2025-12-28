@@ -15,11 +15,6 @@ class TestCustomerRepository:
         """Test finding a customer by CPF when customer exists."""
         # Arrange
         mock_session = Mock()
-        mock_query = Mock()
-        mock_filter = Mock()
-        
-        mock_session.query.return_value = mock_query
-        mock_query.filter.return_value = mock_filter
         
         customer_model = CustomerModel(
             id="550e8400-e29b-41d4-a716-446655440000",
@@ -30,7 +25,10 @@ class TestCustomerRepository:
             criado_em=datetime(2024, 1, 1, 10, 0, 0),
             atualizado_em=datetime(2024, 1, 1, 10, 0, 0)
         )
-        mock_filter.first.return_value = customer_model
+        
+        mock_query = Mock()
+        mock_query.all.return_value = [customer_model]
+        mock_session.query.return_value = mock_query
         
         repository = CustomerRepository(mock_session)
         
@@ -52,12 +50,10 @@ class TestCustomerRepository:
         """Test finding a customer by CPF when customer doesn't exist."""
         # Arrange
         mock_session = Mock()
-        mock_query = Mock()
-        mock_filter = Mock()
         
+        mock_query = Mock()
+        mock_query.all.return_value = []
         mock_session.query.return_value = mock_query
-        mock_query.filter.return_value = mock_filter
-        mock_filter.first.return_value = None
         
         repository = CustomerRepository(mock_session)
         
@@ -72,11 +68,6 @@ class TestCustomerRepository:
         """Test that repository can handle CPF with formatting."""
         # Arrange
         mock_session = Mock()
-        mock_query = Mock()
-        mock_filter = Mock()
-        
-        mock_session.query.return_value = mock_query
-        mock_query.filter.return_value = mock_filter
         
         customer_model = CustomerModel(
             id="550e8400-e29b-41d4-a716-446655440000",
@@ -87,7 +78,10 @@ class TestCustomerRepository:
             criado_em=datetime(2024, 1, 1, 10, 0, 0),
             atualizado_em=datetime(2024, 1, 1, 10, 0, 0)
         )
-        mock_filter.first.return_value = customer_model
+        
+        mock_query = Mock()
+        mock_query.all.return_value = [customer_model]
+        mock_session.query.return_value = mock_query
         
         repository = CustomerRepository(mock_session)
         

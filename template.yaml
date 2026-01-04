@@ -96,5 +96,13 @@ Resources:
               Authorizer: JwtAuthorizer
 
 Outputs:
+  AuthFunctionArn:
+    Description: Authentication Lambda Function ARN
+    Value: !GetAtt AuthFunction.Arn
+  
+  AuthFunctionName:
+    Description: Authentication Lambda Function Name
+    Value: !Ref AuthFunction
+    
   ApiUrl:
     Value: !Sub 'https://${AuthApi}.execute-api.${AWS::Region}.amazonaws.com/prod'

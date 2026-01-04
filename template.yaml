@@ -1,4 +1,3 @@
-# AWS SAM Template (Alternative to Serverless Framework)
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Serverless Authentication API with Clean Architecture
@@ -7,31 +6,20 @@ Parameters:
   Environment:
     Type: String
     Default: hml
-    AllowedValues:
-      - hml
-      - prd
-  
+    AllowedValues: [hml, prd]
+
   DBHost:
     Type: String
-    Description: RDS MySQL endpoint
-  
   DBName:
     Type: String
-    Description: Database name
-  
   DBUser:
     Type: String
-    Description: Database user
-  
   DBPassword:
     Type: String
     NoEcho: true
-    Description: Database password
-  
   JWTSecret:
     Type: String
     NoEcho: true
-    Description: JWT secret key
 
 Globals:
   Function:
@@ -52,38 +40,61 @@ Globals:
         ENVIRONMENT: !Ref Environment
 
 Resources:
-  # Dependencies Layer
+
   DependenciesLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub '${AWS::StackName}-dependencies'
-      Description: Python dependencies for authentication Lambda
       ContentUri: .
-      CompatibleRuntimes:
-        - python3.11
+      CompatibleRuntimes: [python3.11]
       RetentionPolicy: Delete
     Metadata:
       BuildMethod: python3.11
-      BuildArchitecture: x86_64
 
-  # Authentication Lambda Function
+  AuthApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      Auth:
+        DefaultAuthorizer: JwtAuthorizer
+        Authorizers:
+          JwtAuthorizer:
+            JwtConfiguration:
+              issuer: serverless-auth
+              audience: [api-client]
+            IdentitySource: "$request.header.Authorization"
+
   AuthFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${AWS::StackName}-auth'
       CodeUri: src/
       Handler: lambda_handler.lambda_handler
-      Description: Authenticate customer and generate JWT token
-      Layers:
-        - !Ref DependenciesLayer
-    Metadata:
-      BuildMethod: python3.11
+      Layers: [!Ref DependenciesLayer]
+      Events:
+        AuthRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AuthApi
+            Path: /auth
+            Method: POST
+
+  ProtectedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-protected'
+      CodeUri: src/
+      Handler: protected_handler.lambda_handler
+      Events:
+        ProtectedRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AuthApi
+            Path: /protected
+            Method: GET
+            Auth:
+              Authorizer: JwtAuthorizer
 
 Outputs:
-  AuthFunctionArn:
-    Description: Authentication Lambda Function ARN
-    Value: !GetAtt AuthFunction.Arn
-  
-  AuthFunctionName:
-    Description: Authentication Lambda Function Name
-    Value: !Ref AuthFunction
+  ApiUrl:
+    Value: !Sub 'https://${AuthApi}.execute-api.${AWS::Region}.amazonaws.com/prod'

@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from loguru import logger
 
 from src.adapters.controllers.authentication_controller import AuthenticationController
 from src.adapters.gateways.customer_repository import CustomerRepository
@@ -21,8 +22,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         API Gateway response
     """
+    logger.info("Authentication Lambda invoked", request_id=context.request_id)
 
     DatabaseConnection.initialize()
+    logger.debug("Database connection initialized")
 
     with DatabaseConnection.get_session() as session:
         customer_repository = CustomerRepository(session)
@@ -34,4 +37,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         controller = AuthenticationController(use_case)
 
-        return controller.handle(event)
+        response = controller.handle(event)
+        logger.info("Authentication request completed", status_code=response.get('statusCode'))
+        return response

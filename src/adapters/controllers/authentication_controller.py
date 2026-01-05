@@ -1,5 +1,6 @@
 import json
 from typing import Dict, Any
+from loguru import logger
 
 from src.application.use_cases.authenticate_customer import (
     AuthenticateCustomerUseCase,
@@ -33,15 +34,19 @@ class AuthenticationController:
         """
         try:
             body = self._parse_body(event)
+            logger.debug("Request body parsed", body_keys=list(body.keys()))
 
             if "cpf" not in body:
+                logger.warning("Missing CPF in request body")
                 return self._bad_request("Campo 'cpf' é obrigatório")
 
             request = AuthenticationRequest(cpf=body["cpf"])
+            logger.info("Authentication attempt", cpf_prefix=body["cpf"][:3])
 
             response = self._use_case.execute(request)
 
             if response.success:
+                logger.info("Authentication successful", customer_id=response.customer_id)
                 return self._ok(
                     {
                         "token": response.token,
@@ -53,11 +58,14 @@ class AuthenticationController:
                     }
                 )
             else:
+                logger.warning("Authentication failed", reason=response.message)
                 return self._unauthorized(response.message)
 
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            logger.error("Invalid JSON in request", error=str(e))
             return self._bad_request("JSON inválido")
         except Exception as e:
+            logger.exception("Unexpected error in authentication", error=str(e))
             return self._internal_error(str(e))
 
     @staticmethod

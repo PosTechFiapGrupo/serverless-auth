@@ -38,6 +38,15 @@ Globals:
         JWT_ISSUER: 'serverless-auth'
         JWT_EXPIRATION_MINUTES: '60'
         ENVIRONMENT: !Ref Environment
+        NEW_RELIC_LICENSE_KEY: !Ref NewRelicLicenseKey
+        NEW_RELIC_ACCOUNT_ID: !Ref NewRelicAccountId
+        NEW_RELIC_TRUSTED_ACCOUNT_KEY: !Ref NewRelicAccountId
+        NEW_RELIC_APM_LAMBDA_MODE: true
+        NEW_RELIC_DATA_COLLECTION_TIMEOUT: 10s
+        NEW_RELIC_EXTENSION_SEND_FUNCTION_LOGS : false
+        NEW_RELIC_LAMBDA_EXTENSION_ENABLED : true
+        NEW_RELIC_PACKAGE_REPORTING_ENABLED: 
+        NEW_RELIC_LAMBDA_HANDLER: lambda_handler.lambda_handler
 
 Resources:
 
@@ -69,8 +78,11 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-auth'
       CodeUri: src/
-      Handler: lambda_handler.lambda_handler
-      Layers: [!Ref DependenciesLayer]
+      Handler: newrelic_lambda_wrapper.handler
+      Description: Authenticate customer and generate JWT token
+      Layers:
+        - !Ref DependenciesLayer
+        - !Sub 'arn:aws:lambda:${AWS::Region}:451483290750:layer:NewRelicPython311:63'
       Events:
         AuthRoute:
           Type: HttpApi
@@ -78,13 +90,21 @@ Resources:
             ApiId: !Ref AuthApi
             Path: /auth
             Method: POST
+      Environment:
+        Variables:
+          NEW_RELIC_LAMBDA_HANDLER: lambda_handler.lambda_handler
+    Metadata:
+      BuildMethod: python3.11
 
   ProtectedFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${AWS::StackName}-protected'
       CodeUri: src/
-      Handler: protected_handler.lambda_handler
+      Handler: newrelic_lambda_wrapper.handler
+      Layers:
+        - !Ref DependenciesLayer
+        - !Sub 'arn:aws:lambda:${AWS::Region}:451483290750:layer:NewRelicPython311:63'
       Events:
         ProtectedRoute:
           Type: HttpApi
@@ -94,6 +114,9 @@ Resources:
             Method: GET
             Auth:
               Authorizer: JwtAuthorizer
+      Environment:
+        Variables:
+          NEW_RELIC_LAMBDA_HANDLER: protected_handler.lambda_handler
 
 Outputs:
   AuthFunctionArn:

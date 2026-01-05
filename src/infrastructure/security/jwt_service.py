@@ -35,6 +35,8 @@ class JWTTokenGenerator(ITokenGenerator):
         payload = {
             "sub": str(customer_id),
             "cpf": cpf,
+            "role": "client",
+            "aud": "api-client",
             "iat": now,
             "exp": expiration,
             "iss": self._settings.jwt_issuer,
@@ -61,11 +63,12 @@ class JWTTokenGenerator(ITokenGenerator):
         """
         try:
             payload = jwt.decode(
-                token,
-                self._settings.jwt_secret,
-                algorithms=[self._settings.jwt_algorithm],
-                issuer=self._settings.jwt_issuer,
-            )
+            token,
+            self._settings.jwt_secret,
+            algorithms=[self._settings.jwt_algorithm],
+            issuer=self._settings.jwt_issuer,
+            audience="api-client",
+        )
             return payload
         except jwt.ExpiredSignatureError:
             raise ValueError("Token expirado")

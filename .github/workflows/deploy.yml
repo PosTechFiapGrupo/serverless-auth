@@ -3,13 +3,6 @@ name: Deploy Lambda Authentication
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to deploy'
-        required: true
-        type: choice
-        options:
-          - hml
-          - prd
       stack_name:
         description: 'Lambda stack name'
         required: false
@@ -18,7 +11,6 @@ on:
   push:
     branches:
       - main
-      - homologation
 
 jobs:
   deploy:
@@ -28,31 +20,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set environment variables
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENVIRONMENT="${{ inputs.environment }}"
-            BASE_STACK_NAME="${{ inputs.stack_name }}"
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ENVIRONMENT="prd"
-            BASE_STACK_NAME="auth-app"
-          elif [[ "${{ github.ref }}" == "refs/heads/homologation" ]]; then
-            ENVIRONMENT="hml"
-            BASE_STACK_NAME="auth-app"
-          fi
-          
-          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
-          
-          # Set stack name with environment suffix for hml
-          if [[ "$ENVIRONMENT" == "hml" ]]; then
-            echo "STACK_NAME=${BASE_STACK_NAME}-hml" >> $GITHUB_ENV
-            echo "DB_NAME=postech-hml" >> $GITHUB_ENV
-          else
-            echo "STACK_NAME=${BASE_STACK_NAME}" >> $GITHUB_ENV
-            echo "DB_NAME=postech-prd" >> $GITHUB_ENV
-          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -77,25 +44,27 @@ jobs:
 
       - name: SAM Deploy
         run: |
+          STACK_NAME="${{ github.event.inputs.stack_name || 'auth-app' }}"
           sam deploy \
-            --stack-name ${{ env.STACK_NAME }} \
+            --stack-name $STACK_NAME \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_IAM \
             --parameter-overrides \
-              Environment=${{ env.ENVIRONMENT }} \
+              Environment=prd \
               DBHost=${{ secrets.DB_HOST }} \
-              DBName=${{ env.DB_NAME }} \
+              DBName=${{ secrets.DB_NAME }} \
               DBUser=${{ secrets.DB_USER }} \
               DBPassword=${{ secrets.DB_PASSWORD }} \
               JWTSecret=${{ secrets.JWT_SECRET }}
 
       - name: Deployment Summary
         run: |
+          STACK_NAME="${{ github.event.inputs.stack_name || 'auth-app' }}"
           echo "### Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Stack Name**: ${{ env.STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Database**: ${{ env.DB_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stack Name**: $STACK_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database**: ${{ secrets.DB_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ secrets.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY

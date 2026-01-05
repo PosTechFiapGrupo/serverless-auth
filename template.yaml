@@ -20,6 +20,12 @@ Parameters:
   JWTSecret:
     Type: String
     NoEcho: true
+  NewRelicLicenseKey:
+    Type: String
+    NoEcho: true
+  NewRelicAccountId:
+    Type: String
+    NoEcho: true
 
 Globals:
   Function:

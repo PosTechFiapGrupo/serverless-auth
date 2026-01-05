@@ -56,7 +56,9 @@ jobs:
               DBName=${{ secrets.DB_NAME }} \
               DBUser=${{ secrets.DB_USER }} \
               DBPassword=${{ secrets.DB_PASSWORD }} \
-              JWTSecret=${{ secrets.JWT_SECRET }}
+              JWTSecret=${{ secrets.JWT_SECRET }} \
+              NewRelicLicenseKey=${{ secrets.NEW_RELIC_LICENSE_KEY }} \
+              NewRelicAccountId=${{ secrets.NEW_RELIC_ACCOUNT_ID }}
 
       - name: Deployment Summary
         run: |

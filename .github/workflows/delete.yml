@@ -3,15 +3,8 @@ name: Delete Lambda Stack
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to delete'
-        required: true
-        type: choice
-        options:
-          - hml
-          - prd
       stack_name:
-        description: 'Lambda stack name (without environment suffix)'
+        description: 'Lambda stack name'
         required: false
         default: 'auth-app'
         type: string
@@ -36,21 +29,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment variables
-        id: set-env
-        run: |
-          ENVIRONMENT="${{ inputs.environment }}"
-          BASE_STACK_NAME="${{ inputs.stack_name }}"
-          
-          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
-          
-          # Set stack name with environment suffix for hml
-          if [[ "$ENVIRONMENT" == "hml" ]]; then
-            echo "STACK_NAME=${BASE_STACK_NAME}-hml" >> $GITHUB_ENV
-          else
-            echo "STACK_NAME=${BASE_STACK_NAME}" >> $GITHUB_ENV
-          fi
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -70,19 +48,21 @@ jobs:
 
       - name: Delete SAM Stack
         run: |
-          echo "🗑️ Deleting stack: ${{ env.STACK_NAME }}"
+          STACK_NAME="${{ inputs.stack_name || 'auth-app' }}"
+          echo "🗑️ Deleting stack: $STACK_NAME"
           sam delete \
-            --stack-name ${{ env.STACK_NAME }} \
+            --stack-name $STACK_NAME \
             --no-prompts \
             --region ${{ secrets.AWS_REGION }}
 
       - name: Deletion Summary
         if: always()
         run: |
+          STACK_NAME="${{ inputs.stack_name || 'auth-app' }}"
           echo "### Deletion Summary :wastebasket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Stack Name**: ${{ env.STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stack Name**: $STACK_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ secrets.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
           if [[ $? -eq 0 ]]; then
             echo "- **Status**: ✅ Successfully deleted" >> $GITHUB_STEP_SUMMARY

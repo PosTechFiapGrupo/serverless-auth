@@ -94,6 +94,8 @@ Resources:
             ApiId: !Ref AuthApi
             Path: /auth
             Method: POST
+            Auth:
+              Authorizer: NONE
       Environment:
         Variables:
           NEW_RELIC_LAMBDA_HANDLER: lambda_handler.lambda_handler

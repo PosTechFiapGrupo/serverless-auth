@@ -11,6 +11,10 @@ O projeto foi desenvolvido seguindo os princípios de **Clean Architecture**, ga
 - Validação de CPF do cliente
 - Consulta de existência e status no banco de dados RDS MySQL
 - Geração de token JWT para autenticação
+- API Gateway com autorização JWT integrada
+- Endpoint protegido para validação de tokens
+- Monitoramento e observabilidade com New Relic APM
+- Logging estruturado com Loguru
 - Deploy automatizado via GitHub Actions (HML/PRD)
 
 ## 🏗️ Diagrama de Arquitetura
@@ -18,19 +22,32 @@ O projeto foi desenvolvido seguindo os princípios de **Clean Architecture**, ga
 ```mermaid
 flowchart TB
     subgraph AWS["AWS Cloud"]
-        Lambda["Lambda Function<br/>auth-app"]
+        APIGW["API Gateway<br/>HttpApi"]
+        AuthLambda["Lambda Function<br/>auth-app-auth"]
+        ProtectedLambda["Lambda Function<br/>auth-app-protected"]
         Layer["Lambda Layer<br/>Dependencies"]
+        NewRelicLayer["New Relic Layer<br/>APM Monitoring"]
         RDS[("RDS MySQL<br/>Customer DB")]
         
-        Lambda -.->|uses| Layer
-        Lambda -->|query| RDS
+        AuthLambda -.->|uses| Layer
+        AuthLambda -.->|monitors| NewRelicLayer
+        ProtectedLambda -.->|uses| Layer
+        ProtectedLambda -.->|monitors| NewRelicLayer
+        AuthLambda -->|query| RDS
     end
     
-    Client["Client/API"] -->|invoke| Lambda
-    Lambda -->|JWT token| Client
+    Client["Client/API"] -->|POST /auth| APIGW
+    Client -->|GET /protected| APIGW
+    APIGW -->|no auth| AuthLambda
+    APIGW -->|JWT auth| ProtectedLambda
+    AuthLambda -->|JWT token| Client
+    ProtectedLambda -->|authorized data| Client
     
-    style Lambda fill:#FF9900
+    style APIGW fill:#FF4F8B
+    style AuthLambda fill:#FF9900
+    style ProtectedLambda fill:#FF9900
     style Layer fill:#FF9900
+    style NewRelicLayer fill:#00AC69
     style RDS fill:#527FFF
     style Client fill:#232F3E
 ```
@@ -58,9 +75,13 @@ flowchart LR
         DB["Database<br/>SQLAlchemy"]
         JWT["Security<br/>JWT Service"]
         Config["Config<br/>Settings"]
+        Logger["Logging<br/>Loguru"]
+        Monitor["Monitoring<br/>New Relic"]
     end
     
     Handler["lambda_handler.py"] --> Controllers
+    Handler --> Logger
+    Handler -.->|wrapped by| Monitor
     Controllers --> UseCases
     UseCases --> Entities
     UseCases --> VOs
@@ -68,6 +89,7 @@ flowchart LR
     Gateways -.->|implements| Ports
     Gateways --> DB
     Controllers --> JWT
+    Controllers --> Logger
     DB --> Config
     
     style Domain fill:#e1f5ff
@@ -82,12 +104,15 @@ flowchart LR
 |-----------|-----------|--------|-----------|
 | **Runtime** | Python | 3.11 | Linguagem principal |
 | **Cloud** | AWS Lambda | - | Função serverless |
+| **Cloud** | AWS API Gateway | HttpApi | API REST com autorização JWT |
 | **Cloud** | AWS Lambda Layer | - | Gerenciamento de dependências |
 | **Database** | RDS MySQL | 8.0+ | Banco de dados relacional |
 | **ORM** | SQLAlchemy | 2.0.44 | Object-relational mapping |
 | **Auth** | PyJWT | 2.10.1 | Geração e validação de tokens JWT |
 | **Security** | cryptography | 46.0.3 | Criptografia |
 | **Config** | python-dotenv | 1.0.0 | Gerenciamento de variáveis de ambiente |
+| **Logging** | loguru | 0.7.3 | Sistema de logging estruturado |
+| **Monitoring** | New Relic | 10.3.0 | Observabilidade e APM |
 | **Tests** | pytest | 7.4.3 | Framework de testes |
 | **Tests** | pytest-cov | 4.1.0 | Cobertura de código |
 | **IaC** | AWS SAM | - | Infraestrutura como código |
@@ -139,6 +164,8 @@ JWT_ALGORITHM=HS256
 JWT_ISSUER=serverless-auth
 JWT_EXPIRATION_MINUTES=60
 ENVIRONMENT=development
+NEW_RELIC_LICENSE_KEY=your-newrelic-license-key
+NEW_RELIC_ACCOUNT_ID=your-newrelic-account-id
 ```
 
 ### Executar Testes
@@ -178,6 +205,8 @@ Em **Settings → Secrets and variables → Actions**, adicione:
 - `DB_USER`
 - `DB_PASSWORD`
 - `JWT_SECRET`
+- `NEW_RELIC_LICENSE_KEY`
+- `NEW_RELIC_ACCOUNT_ID`
 
 **2. Deploy por Push**
 
@@ -216,7 +245,9 @@ sam deploy \
     DBName=postech-hml \
     DBUser=admin \
     DBPassword=secret \
-    JWTSecret=jwt-secret
+    JWTSecret=jwt-secret \
+    NewRelicLicenseKey=your-newrelic-key \
+    NewRelicAccountId=your-account-id
 
 # 3. Verificar o deploy
 aws lambda list-functions --query 'Functions[?FunctionName==`auth-app-auth`]'
@@ -237,20 +268,63 @@ sam delete --stack-name auth-app
 
 ## 🔗 Documentação da API
 
-### Swagger/Postman
+### Endpoints Disponíveis
 
-> ⚠️ **Nota**: Este Lambda **não possui API Gateway** configurado atualmente. Ele é invocado diretamente via AWS SDK ou CLI.
-> 
-> Para integração com API Gateway e documentação Swagger, consulte o repositório principal da aplicação.
+| Endpoint | Método | Autenticação | Descrição |
+|----------|---------|----------------|------------|
+| `/auth` | POST | Não | Autentica cliente e retorna JWT |
+| `/protected` | GET | JWT Bearer | Endpoint protegido para teste de autorização |
 
-### Invocar Lambda Diretamente
+### Uso da API
+
+**1. Autenticar e obter token:**
+
+```bash
+curl -X POST https://<api-id>.execute-api.us-east-2.amazonaws.com/prod/auth \
+  -H "Content-Type: application/json" \
+  -d '{"cpf":"12345678901"}'
+```
+
+**Resposta:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "message": "Autenticação realizada com sucesso",
+  "customer": {
+    "id": 1,
+    "name": "João da Silva"
+  }
+}
+```
+
+**2. Acessar endpoint protegido:**
+
+```bash
+curl -X GET https://<api-id>.execute-api.us-east-2.amazonaws.com/prod/protected \
+  -H "Authorization: Bearer <seu-token-jwt>"
+```
+
+**Resposta:**
+
+```json
+{
+  "message": "Acesso autorizado",
+  "claims": {
+    "sub": "1",
+    "name": "João da Silva"
+  }
+}
+```
+
+### Invocar Lambda Diretamente (Opcional)
 
 **Via AWS CLI:**
 
 ```bash
 aws lambda invoke \
   --function-name auth-app-auth \
-  --payload '{"cpf":"12345678901"}' \
+  --payload '{"body":"{"cpf":"12345678901"}"}' \
   response.json
 
 cat response.json
@@ -276,7 +350,8 @@ cat response.json
 
 ```
 src/
-├── lambda_handler.py           # Entry point do Lambda
+├── lambda_handler.py           # Entry point do Lambda de autenticação
+├── protected_handler.py        # Entry point do Lambda protegido
 ├── domain/                     # Regras de negócio
 │   ├── entities/              # Customer entity
 │   └── value_objects/         # CPF validation
@@ -304,11 +379,11 @@ O projeto possui 2 workflows configurados:
 
 | Workflow | Trigger | Descrição |
 |----------|---------|-----------|
-| **Deploy** | Push em `main` ou `homologation` | Deploy automático para PRD ou HML |
-| **Deploy** | Manual (workflow_dispatch) | Deploy manual com escolha de ambiente |
+| **Deploy** | Push em `main`` | Deploy automático para PRD |
+| **Deploy** | Manual (workflow_dispatch) | Deploy manual |
 | **Delete** | Manual (workflow_dispatch) | Remove o stack do AWS CloudFormation |
 
-**Secrets necessários:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`
+**Secrets necessários:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_ACCOUNT_ID`
 
 ## 📝 Licença
 

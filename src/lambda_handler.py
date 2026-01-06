@@ -22,7 +22,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         API Gateway response
     """
-    logger.info("Authentication Lambda invoked", request_id=context.request_id)
+    logger.info("Authentication Lambda invoked", request_id=context.aws_request_id)
 
     DatabaseConnection.initialize()
     logger.debug("Database connection initialized")

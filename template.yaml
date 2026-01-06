@@ -5,8 +5,7 @@ Description: Serverless Authentication API with Clean Architecture
 Parameters:
   Environment:
     Type: String
-    Default: hml
-    AllowedValues: [hml, prd]
+    Default: prd
 
   DBHost:
     Type: String
@@ -51,7 +50,6 @@ Globals:
         NEW_RELIC_DATA_COLLECTION_TIMEOUT: 10s
         NEW_RELIC_EXTENSION_SEND_FUNCTION_LOGS : false
         NEW_RELIC_LAMBDA_EXTENSION_ENABLED : true
-        NEW_RELIC_PACKAGE_REPORTING_ENABLED: 
         NEW_RELIC_LAMBDA_HANDLER: lambda_handler.lambda_handler
 
 Resources:

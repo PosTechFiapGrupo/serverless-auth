@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless Authentication API with Clean Architecture
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prd
+
+  DBHost:
+    Type: String
+  DBName:
+    Type: String
+  DBUser:
+    Type: String
+  DBPassword:
+    Type: String
+    NoEcho: true
+  JWTSecret:
+    Type: String
+    NoEcho: true
+  NewRelicLicenseKey:
+    Type: String
+    NoEcho: true
+  NewRelicAccountId:
+    Type: String
+    NoEcho: true
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        DB_HOST: !Ref DBHost
+        DB_PORT: '3306'
+        DB_NAME: !Ref DBName
+        DB_USER: !Ref DBUser
+        DB_PASSWORD: !Ref DBPassword
+        JWT_SECRET: !Ref JWTSecret
+        JWT_ALGORITHM: 'HS256'
+        JWT_ISSUER: 'serverless-auth'
+        JWT_EXPIRATION_MINUTES: '60'
+        ENVIRONMENT: !Ref Environment
+        NEW_RELIC_LICENSE_KEY: !Ref NewRelicLicenseKey
+        NEW_RELIC_ACCOUNT_ID: !Ref NewRelicAccountId
+        NEW_RELIC_TRUSTED_ACCOUNT_KEY: !Ref NewRelicAccountId
+        NEW_RELIC_APM_LAMBDA_MODE: true
+        NEW_RELIC_DATA_COLLECTION_TIMEOUT: 10s
+        NEW_RELIC_EXTENSION_SEND_FUNCTION_LOGS : false
+        NEW_RELIC_LAMBDA_EXTENSION_ENABLED : true
+        NEW_RELIC_LAMBDA_HANDLER: lambda_handler.lambda_handler
+
+Resources:
+
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub '${AWS::StackName}-dependencies'
+      ContentUri: .
+      CompatibleRuntimes: [python3.11]
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.11
+
+  AuthApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      Auth:
+        DefaultAuthorizer: JwtAuthorizer
+        Authorizers:
+          JwtAuthorizer:
+            JwtConfiguration:
+              issuer: serverless-auth
+              audience: [api-client]
+            IdentitySource: "$request.header.Authorization"
+
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-auth'
+      CodeUri: src/
+      Handler: newrelic_lambda_wrapper.handler
+      Description: Authenticate customer and generate JWT token
+      Layers:
+        - !Ref DependenciesLayer
+        - !Sub 'arn:aws:lambda:${AWS::Region}:451483290750:layer:NewRelicPython311:63'
+      Events:
+        AuthRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AuthApi
+            Path: /auth
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Environment:
+        Variables:
+          NEW_RELIC_LAMBDA_HANDLER: lambda_handler.lambda_handler
+    Metadata:
+      BuildMethod: python3.11
+
+  ProtectedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-protected'
+      CodeUri: src/
+      Handler: newrelic_lambda_wrapper.handler
+      Layers:
+        - !Ref DependenciesLayer
+        - !Sub 'arn:aws:lambda:${AWS::Region}:451483290750:layer:NewRelicPython311:63'
+      Events:
+        ProtectedRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AuthApi
+            Path: /protected
+            Method: GET
+            Auth:
+              Authorizer: JwtAuthorizer
+      Environment:
+        Variables:
+          NEW_RELIC_LAMBDA_HANDLER: protected_handler.lambda_handler
+
+Outputs:
+  AuthFunctionArn:
+    Description: Authentication Lambda Function ARN
+    Value: !GetAtt AuthFunction.Arn
+  
+  AuthFunctionName:
+    Description: Authentication Lambda Function Name
+    Value: !Ref AuthFunction
+    
+  ApiUrl:
+    Value: !Sub 'https://${AuthApi}.execute-api.${AWS::Region}.amazonaws.com/prod'

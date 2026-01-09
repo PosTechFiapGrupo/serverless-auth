@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Dict
+import uuid
 
 import jwt
 
@@ -31,12 +32,14 @@ class JWTTokenGenerator(ITokenGenerator):
         """
         now = datetime.utcnow()
         expiration = now + timedelta(minutes=expiration_minutes)
+        trace_id = str(uuid.uuid4())
 
         payload = {
             "sub": str(customer_id),
             "cpf": cpf,
             "role": "client",
             "aud": "api-client",
+            "trace_id": trace_id,
             "iat": now,
             "exp": expiration,
             "iss": self._settings.jwt_issuer,

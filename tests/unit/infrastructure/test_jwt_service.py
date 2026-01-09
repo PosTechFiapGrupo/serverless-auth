@@ -34,7 +34,7 @@ class TestJWTTokenGenerator:
 
         # Decode to verify
         payload = jwt.decode(
-            token, "test-secret", algorithms=["HS256"], issuer="test-issuer"
+            token, "test-secret", algorithms=["HS256"], issuer="test-issuer", audience="api-client"
         )
 
         assert payload["sub"] == "1"
@@ -161,7 +161,7 @@ class TestJWTTokenGenerator:
 
         # Assert
         payload = jwt.decode(
-            token, "test-secret", algorithms=["HS256"], issuer="test-issuer"
+            token, "test-secret", algorithms=["HS256"], issuer="test-issuer", audience="api-client"
         )
 
         iat = datetime.fromtimestamp(payload["iat"])

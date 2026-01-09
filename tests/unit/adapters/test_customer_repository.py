@@ -119,3 +119,17 @@ class TestCustomerRepository:
         assert customer.nome == "João da Silva"
         assert customer.email == "joao@example.com"
         assert customer.telefone == "11987654321"
+
+    def test_find_by_cpf_handles_database_error(self):
+        """Test that repository handles database errors gracefully."""
+        # Arrange
+        mock_session = Mock()
+        mock_session.query.side_effect = Exception("Database error")
+
+        repository = CustomerRepository(mock_session)
+
+        # Act
+        customer = repository.find_by_cpf("11144477735")
+
+        # Assert
+        assert customer is None
